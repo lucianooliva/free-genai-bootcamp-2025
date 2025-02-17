@@ -4,8 +4,6 @@ from datetime import datetime
 import math
 
 def load(app):
-  # todo /study_sessions POST
-
   @app.route('/api/study-sessions', methods=['GET'])
   @cross_origin()
   def get_study_sessions():
@@ -151,7 +149,36 @@ def load(app):
     except Exception as e:
       return jsonify({"error": str(e)}), 500
 
-  # todo POST /study_sessions/:id/review
+  # Endpoint: POST /study_sessions/:id/review to add review items to a study session
+  @app.route('/api/study-sessions/<int:study_session_id>/review', methods=['POST'])
+  @cross_origin()
+  def add_review_items(study_session_id):
+    try:
+      cursor = app.db.cursor()
+      
+      # Get the session
+      cursor.execute('SELECT * FROM study_sessions WHERE id = ?', (study_session_id,))
+      session = cursor.fetchone()
+      if not session:
+        return jsonify({"error": "Study session not found"}), 404
+
+      # Get the words to review
+      words = request.json.get('words', [])
+      if not words:
+        return jsonify({"error": "No words to review provided"}), 400
+
+      # Insert the review items
+      for word in words:
+        cursor.execute('''
+          INSERT INTO word_review_items (study_session_id, word_id, correct)
+          VALUES (?, ?, ?)
+        ''', (study_session_id, word['id'], word['correct']))
+      
+      app.db.commit()
+
+      return jsonify({"message": "Review items added successfully"}), 200
+    except Exception as e:
+      return jsonify({"error": str(e)}), 500
 
   @app.route('/api/study-sessions/reset', methods=['POST'])
   @cross_origin()
@@ -168,5 +195,41 @@ def load(app):
       app.db.commit()
       
       return jsonify({"message": "Study history cleared successfully"}), 200
+    except Exception as e:
+      return jsonify({"error": str(e)}), 500
+
+  # Endpoint: POST /api/study-sessions to create a new study session
+  @app.route('/api/study-sessions', methods=['POST'])
+  @cross_origin()
+  def create_study_session():
+    try:
+      cursor = app.db.cursor()
+      
+      group_id = request.json.get('group_id')
+      activity_id = request.json.get('activity_id')
+      
+      if not group_id or not activity_id:
+        return jsonify({"error": "Group ID and activity ID are required"}), 400
+
+      # Verificar se o group_id existe
+      cursor.execute('SELECT id FROM groups WHERE id = ?', (group_id,))
+      group = cursor.fetchone()
+      if not group:
+        return jsonify({"error": "Group ID does not exist"}), 400
+
+      # Verificar se o activity_id existe
+      cursor.execute('SELECT id FROM study_activities WHERE id = ?', (activity_id,))
+      activity = cursor.fetchone()
+      if not activity:
+        return jsonify({"error": "Activity ID does not exist"}), 400
+
+      cursor.execute('''
+        INSERT INTO study_sessions (group_id, study_activity_id, created_at)
+        VALUES (?, ?, ?)
+      ''', (group_id, activity_id, datetime.now()))
+      
+      app.db.commit()
+      
+      return jsonify({"message": "Study session created successfully"}), 200
     except Exception as e:
       return jsonify({"error": str(e)}), 500

@@ -124,3 +124,62 @@ def load(app):
                 'name': group['name']
             } for group in groups]
         })
+
+    @app.route('/api/study-activities', methods=['POST'])
+    @cross_origin()
+    def create_study_activity():
+        try:
+            data = request.get_json()
+            name = data.get('name')
+            url = data.get('url')
+            preview_url = data.get('preview_url')
+
+            if not name or not url:
+                return jsonify({"error": "Name and URL are required"}), 400
+
+            cursor = app.db.cursor()
+            cursor.execute('''
+                INSERT INTO study_activities (name, url, preview_url)
+                VALUES (?, ?, ?)
+            ''', (name, url, preview_url))
+            app.db.commit()
+
+            return jsonify({"message": "Study activity created successfully"}), 201
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/study-activities/<int:id>', methods=['PUT'])
+    @cross_origin()
+    def update_study_activity(id):
+        try:
+            data = request.get_json()
+            name = data.get('name')
+            url = data.get('url')
+            preview_url = data.get('preview_url')
+
+            if not name or not url:
+                return jsonify({"error": "Name and URL are required"}), 400
+
+            cursor = app.db.cursor()
+            cursor.execute('''
+                UPDATE study_activities
+                SET name = ?, url = ?, preview_url = ?
+                WHERE id = ?
+            ''', (name, url, preview_url, id))
+            app.db.commit()
+
+            return jsonify({"message": "Study activity updated successfully"}), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/study-activities/<int:id>', methods=['DELETE'])
+    @cross_origin()
+    def delete_study_activity(id):
+        try:
+            cursor = app.db.cursor()
+            cursor.execute('DELETE FROM study_activities WHERE id = ?', (id,))
+            app.db.commit()
+
+            return jsonify({"message": "Study activity deleted successfully"}), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
